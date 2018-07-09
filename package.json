@@ -1,0 +1,38 @@
+{
+  "name": "parity-prometheus-exporter",
+  "version": "1.0.0",
+  "description": "Prometheus client for Parity",
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/fanatid/parity-prometheus-exporter/issues"
+  },
+  "license": "MIT",
+  "contributors": [
+    "Kirill Fomichev <fanatid@ya.ru> (https://github.com/fanatid)"
+  ],
+  "files": [
+    "index.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fanatid/parity-prometheus-exporter.git"
+  },
+  "scripts": {
+    "lint": "standard",
+    "test": "npm run lint"
+  },
+  "dependencies": {
+    "js-yaml": "^3.12.0",
+    "node-fetch": "^2.1.2",
+    "polka": "^0.4.0",
+    "prom-client": "^11.1.1",
+    "yargs": "^12.0.1"
+  },
+  "devDependencies": {
+    "standard": "^11.0.1"
+  },
+  "engines": {
+    "node": ">=10.4.1"
+  },
+  "private": true
+}

@@ -1,4 +1,7 @@
-# Parity prometheus exporter
+# Parity exporter for Prometheus
+![Docker Stars](https://img.shields.io/docker/stars/fanatid/parity-exporter.svg?style=flat-square)
+![Docker Pulls](https://img.shields.io/docker/pulls/fanatid/parity-exporter.svg?style=flat-square)
+
 [![js-standard-style](https://cdn.rawgit.com/feross/standard/master/badge.svg)](https://github.com/feross/standard)
 
 Metrics page example:
@@ -19,6 +22,22 @@ foundation_latest_height 5935638
 # HELP foundation_peer_count Peer count for foundation
 # TYPE foundation_peer_count gauge
 foundation_peer_count 24
+```
+
+Config example:
+
+```
+port: 8000
+interval: 250 # in ms
+nodes:
+  - name: foundation
+    url: http://localhost:8545/
+```
+
+Usage:
+
+```
+docker run -p 8000:8000 fanatid/parity-exporter
 ```
 
 ### LICENSE

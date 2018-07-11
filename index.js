@@ -140,6 +140,9 @@ async function main () {
 
   const onRequest = await createPrometheusClient(config)
   polka().get('/', onRequest).listen(config.port)
+
+  process.on('SIGINT', () => process.exit(0))
+  process.on('SIGTERM', () => process.exit(0))
 }
 
 main().catch((err) => {

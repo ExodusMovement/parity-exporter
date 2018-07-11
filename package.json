@@ -1,10 +1,10 @@
 {
-  "name": "parity-prometheus-exporter",
+  "name": "parity-exporter",
   "version": "1.0.0",
-  "description": "Prometheus client for Parity",
+  "description": "Parity exporter for Prometheus",
   "keywords": [],
   "bugs": {
-    "url": "https://github.com/fanatid/parity-prometheus-exporter/issues"
+    "url": "https://github.com/fanatid/parity-exporter/issues"
   },
   "license": "MIT",
   "contributors": [
@@ -15,7 +15,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/fanatid/parity-prometheus-exporter.git"
+    "url": "https://github.com/fanatid/parity-exporter.git"
   },
   "scripts": {
     "lint": "standard",

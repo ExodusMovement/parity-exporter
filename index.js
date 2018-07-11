@@ -106,7 +106,7 @@ function initNodeMetrics (registry, name, url) {
     try {
       await update()
     } catch (err) {
-      setGaugeLabels(gClientVersion, ['', '', err.stack || err])
+      setGaugeLabels(gClientVersion, ['', '', err.message || err])
       setGaugeLabels(gLatestBlock, ['', 0])
       gLatestBlockHeight.set(0)
       gPeerCount.set(0)

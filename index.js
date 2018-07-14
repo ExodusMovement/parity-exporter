@@ -4,7 +4,13 @@ const fetch = require('node-fetch')
 const yaml = require('js-yaml')
 const polka = require('polka')
 const yargs = require('yargs')
+const winston = require('winston')
 const { Registry, Gauge } = require('prom-client')
+
+const logger = winston.createLogger({
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+  transports: [new winston.transports.Console()]
+})
 
 function getArgs () {
   return yargs
@@ -112,13 +118,14 @@ function initNodeMetrics (registry, nodes) {
       await Promise.all(nodes.map(async ({ name, url }) => {
         try {
           await update(name, url)
+          logger.info(`${name} updated`)
         } catch (err) {
-          console.error(`Can not update ${name}: ${err.message || err}`)
+          logger.error(`Can not update ${name}: ${err.message || err}`)
           reset(name)
         }
       }))
     } catch (err) {
-      console.error(`Can not update metrics: ${err.message || err}`)
+      logger.error(`Can not update metrics: ${err.message || err}`)
       nodes.map(({ name }) => reset(name))
     }
   }
@@ -153,6 +160,6 @@ async function main () {
 }
 
 main().catch((err) => {
-  console.error(err.stack || err)
+  logger.error(String(err.stack || err))
   process.exit(1)
 })

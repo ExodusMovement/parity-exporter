@@ -139,7 +139,7 @@ async function main () {
   const config = await readConfig(args.config)
 
   const onRequest = await createPrometheusClient(config)
-  polka().get('/', onRequest).listen(config.port)
+  polka().get('/metrics', onRequest).listen(config.port)
 
   process.on('SIGINT', () => process.exit(0))
   process.on('SIGTERM', () => process.exit(0))

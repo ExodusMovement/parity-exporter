@@ -7,21 +7,25 @@
 Metrics page example:
 
 ```
-# HELP foundation_client_info Client info for foundation
-# TYPE foundation_client_info gauge
-foundation_client_info{version="Parity//v1.10.7-stable-ba79cad-20180619/x86_64-linux-gnu/rustc1.26.1",chain="foundation",error=""} 1
+# HELP version Client version
+# TYPE version gauge
+version{chain="classic",value="Parity//v1.10.7-stable-ba79cad-20180619/x86_64-linux-gnu/rustc1.26.1"} 1
+version{chain="foundation",value="Parity//v1.10.7-stable-ba79cad-20180619/x86_64-linux-gnu/rustc1.26.1"} 1
 
-# HELP foundation_latest Information about latest block for foundation
-# TYPE foundation_latest gauge
-foundation_latest{hash="0xd4be7a1cc1da336d5f2cf4c4d30014bc79d537ae8428adc8ab89d0b6c0b19431",height="5935638"} 1
+# HELP latest_hash Latest block hash
+# TYPE latest_hash gauge
+latest_hash{chain="classic",value="0x41fab32cc725d60273645801575775a48f8538f81f509a86758d6e568014be37"} 1
+latest_hash{chain="foundation",value="0x4dab516a7afd7851743a0b729c6d22930bf860991bf21acabb3a8c6924a56907"} 1
 
-# HELP foundation_latest_height Latest block height for foundation
-# TYPE foundation_latest_height gauge
-foundation_latest_height 5935638
+# HELP latest_height Latest block height
+# TYPE latest_height gauge
+latest_height{chain="classic"} 6180394
+latest_height{chain="foundation"} 5964231
 
-# HELP foundation_peer_count Peer count for foundation
-# TYPE foundation_peer_count gauge
-foundation_peer_count 24
+# HELP peer_count Peer count
+# TYPE peer_count gauge
+peer_count{chain="classic"} 23
+peer_count{chain="foundation"} 24
 ```
 
 Config example:
@@ -32,6 +36,8 @@ interval: 250 # in ms
 nodes:
   - name: foundation
     url: http://localhost:8545/
+  - name: classic
+    url: http://localhost:8555/
 ```
 
 Usage:

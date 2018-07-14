@@ -45,71 +45,81 @@ async function makeRequest (url, method, params = []) {
   return json.result
 }
 
-function setGaugeLabels (gauge, labels) {
-  const values = gauge.get().values
-  if (values.length > 0) {
-    const currLabels = values[0].labels
-    const needUpdate = labels.some((label, index) => {
-      return currLabels[gauge.labelNames[index]] !== label
-    })
-    if (!needUpdate) return
-  }
-
-  gauge.reset()
-  gauge.labels(...labels).set(1)
+function setGaugeLabelValue (gauge, chain, value) {
+  const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.chain === chain)
+  if (obj) obj.labels.value = value
+  else gauge.set({ chain, value }, 1)
 }
 
-function initNodeMetrics (registry, name, url) {
-  const gClientVersion = new Gauge({
-    name: `${name}_client_info`,
-    help: `Client info for ${name}`,
-    labelNames: ['version', 'chain', 'error'],
+function setGaugeValue (gauge, chain, value) {
+  const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.chain === chain)
+  if (obj) obj.value = value
+  else gauge.set({ chain }, value)
+}
+
+function initNodeMetrics (registry, nodes) {
+  const gVersion = new Gauge({
+    name: `version`,
+    help: `Client version`,
+    labelNames: ['chain', 'value'],
     registers: [registry]
   })
-  const gLatestBlock = new Gauge({
-    name: `${name}_latest`,
-    help: `Information about latest block for ${name}`,
-    labelNames: ['hash', 'height'],
+  const gLatestBlockHash = new Gauge({
+    name: `latest_hash`,
+    help: `Latest block hash`,
+    labelNames: ['chain', 'value'],
     registers: [registry]
   })
   const gLatestBlockHeight = new Gauge({
-    name: `${name}_latest_height`,
-    help: `Latest block height for ${name}`,
+    name: `latest_height`,
+    help: `Latest block height`,
+    labelNames: ['chain'],
     registers: [registry]
   })
   const gPeerCount = new Gauge({
-    name: `${name}_peer_count`,
-    help: `Peer count for ${name}`,
+    name: `peer_count`,
+    help: `Peer count`,
+    labelNames: ['chain'],
     registers: [registry]
   })
 
-  const update = async () => {
+  const update = async (name, url) => {
     const [
       clientVersion,
-      parityChain,
       latestBlock,
       peerCount
     ] = await Promise.all([
       makeRequest(url, 'web3_clientVersion'),
-      makeRequest(url, 'parity_chain'),
       makeRequest(url, 'eth_getBlockByNumber', ['latest', false]),
       makeRequest(url, 'net_peerCount')
     ])
 
-    setGaugeLabels(gClientVersion, [clientVersion, parityChain, ''])
-    setGaugeLabels(gLatestBlock, [latestBlock.hash, parseInt(latestBlock.number, 16)])
-    gLatestBlockHeight.set(parseInt(latestBlock.number, 16))
-    gPeerCount.set(parseInt(peerCount, 16))
+    setGaugeLabelValue(gVersion, name, clientVersion)
+    setGaugeLabelValue(gLatestBlockHash, name, latestBlock.hash)
+    setGaugeValue(gLatestBlockHeight, name, parseInt(latestBlock.number, 16))
+    setGaugeValue(gPeerCount, name, parseInt(peerCount, 16))
+  }
+
+  const reset = (name) => {
+    setGaugeLabelValue(gVersion, name, '')
+    setGaugeLabelValue(gLatestBlockHash, name, '')
+    setGaugeValue(gLatestBlockHeight, name, 0)
+    setGaugeValue(gPeerCount, name, 0)
   }
 
   return async () => {
     try {
-      await update()
+      await Promise.all(nodes.map(async ({ name, url }) => {
+        try {
+          await update(name, url)
+        } catch (err) {
+          console.error(`Can not update ${name}: ${err.message || err}`)
+          reset(name)
+        }
+      }))
     } catch (err) {
-      setGaugeLabels(gClientVersion, ['', '', err.message || err])
-      setGaugeLabels(gLatestBlock, ['', 0])
-      gLatestBlockHeight.set(0)
-      gPeerCount.set(0)
+      console.error(`Can not update metrics: ${err.message || err}`)
+      nodes.map(({ name }) => reset(name))
     }
   }
 }
@@ -117,16 +127,13 @@ function initNodeMetrics (registry, name, url) {
 async function createPrometheusClient (config) {
   const registry = new Registry()
 
-  for (const node of config.nodes) {
-    const updateMetrics = initNodeMetrics(registry, node.name, node.url)
-
-    const update = async () => {
-      const ts = Date.now()
-      await updateMetrics()
-      setTimeout(update, Math.max(10, config.interval - (Date.now() - ts)))
-    }
-    update()
+  const updateMetrics = initNodeMetrics(registry, config.nodes)
+  const update = async () => {
+    const ts = Date.now()
+    await updateMetrics()
+    setTimeout(update, Math.max(10, config.interval - (Date.now() - ts)))
   }
+  update()
 
   return (req, res) => {
     res.setHeader('Content-Type', registry.contentType)

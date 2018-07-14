@@ -3,3 +3,5 @@ interval: 250 # in ms
 nodes:
   - name: foundation
     url: http://localhost:8545/
+  - name: classic
+    url: http://localhost:8555/

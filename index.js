@@ -65,25 +65,25 @@ function setGaugeValue (gauge, chain, value) {
 
 function initNodeMetrics (registry, nodes) {
   const gVersion = new Gauge({
-    name: `version`,
+    name: `parity_version`,
     help: `Client version`,
     labelNames: ['chain', 'value'],
     registers: [registry]
   })
   const gLatestBlockHash = new Gauge({
-    name: `latest_hash`,
+    name: `parity_latest_hash`,
     help: `Latest block hash`,
     labelNames: ['chain', 'value'],
     registers: [registry]
   })
   const gLatestBlockHeight = new Gauge({
-    name: `latest_height`,
+    name: `parity_latest_height`,
     help: `Latest block height`,
     labelNames: ['chain'],
     registers: [registry]
   })
   const gPeerCount = new Gauge({
-    name: `peer_count`,
+    name: `parity_peer_count`,
     help: `Peer count`,
     labelNames: ['chain'],
     registers: [registry]

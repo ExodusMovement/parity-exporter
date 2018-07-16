@@ -51,16 +51,19 @@ async function makeRequest (url, method, params = []) {
   return json.result
 }
 
-function setGaugeLabelValue (gauge, chain, value) {
+function setGaugeLabelValue (gauge, chain, labelValue, value) {
   const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.chain === chain)
-  if (obj) obj.labels.value = value
-  else gauge.set({ chain, value }, 1)
+  if (!obj) return gauge.set({ chain, value: labelValue }, value)
+
+  obj.labels.value = labelValue
+  obj.value = value
 }
 
 function setGaugeValue (gauge, chain, value) {
   const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.chain === chain)
-  if (obj) obj.value = value
-  else gauge.set({ chain }, value)
+  if (!obj) return gauge.set({ chain }, value)
+
+  obj.value = value
 }
 
 function initNodeMetrics (registry, nodes) {
@@ -70,16 +73,10 @@ function initNodeMetrics (registry, nodes) {
     labelNames: ['chain', 'value'],
     registers: [registry]
   })
-  const gLatestBlockHash = new Gauge({
-    name: `parity_latest_hash`,
-    help: `Latest block hash`,
+  const gLatest = new Gauge({
+    name: `parity_latest`,
+    help: `Latest block information`,
     labelNames: ['chain', 'value'],
-    registers: [registry]
-  })
-  const gLatestBlockHeight = new Gauge({
-    name: `parity_latest_height`,
-    help: `Latest block height`,
-    labelNames: ['chain'],
     registers: [registry]
   })
   const gPeerCount = new Gauge({
@@ -92,7 +89,7 @@ function initNodeMetrics (registry, nodes) {
   const update = async (name, url) => {
     const [
       clientVersion,
-      latestBlock,
+      latest,
       peerCount
     ] = await Promise.all([
       makeRequest(url, 'web3_clientVersion'),
@@ -100,16 +97,14 @@ function initNodeMetrics (registry, nodes) {
       makeRequest(url, 'net_peerCount')
     ])
 
-    setGaugeLabelValue(gVersion, name, clientVersion)
-    setGaugeLabelValue(gLatestBlockHash, name, latestBlock.hash)
-    setGaugeValue(gLatestBlockHeight, name, parseInt(latestBlock.number, 16))
+    setGaugeLabelValue(gVersion, name, clientVersion, 1)
+    setGaugeLabelValue(gLatest, name, `${parseInt(latest.number, 16)}:${latest.hash}`, parseInt(latest.number, 16))
     setGaugeValue(gPeerCount, name, parseInt(peerCount, 16))
   }
 
   const reset = (name) => {
-    setGaugeLabelValue(gVersion, name, '')
-    setGaugeLabelValue(gLatestBlockHash, name, '')
-    setGaugeValue(gLatestBlockHeight, name, 0)
+    setGaugeLabelValue(gVersion, name, '', 0)
+    setGaugeLabelValue(gLatest, name, '', 0)
     setGaugeValue(gPeerCount, name, 0)
   }
 

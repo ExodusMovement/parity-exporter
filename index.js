@@ -51,38 +51,42 @@ async function makeRequest (url, method, params = []) {
   return json.result
 }
 
-function setGaugeLabelValue (gauge, chain, labelValue, value) {
-  const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.chain === chain)
-  if (!obj) return gauge.set({ chain, value: labelValue }, value)
+function setGaugeLabelValue (gauge, name, labelValue, value) {
+  const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.name === name)
+  if (!obj) return gauge.set({ name, value: labelValue }, value)
+  if (obj.labels.value === labelValue && obj.value === value) return
 
   obj.labels.value = labelValue
   obj.value = value
+  logger.info(`${name}:${gauge.name} updated`)
 }
 
-function setGaugeValue (gauge, chain, value) {
-  const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.chain === chain)
-  if (!obj) return gauge.set({ chain }, value)
+function setGaugeValue (gauge, name, value) {
+  const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.name === name)
+  if (!obj) return gauge.set({ name }, value)
+  if (obj.value === value) return
 
   obj.value = value
+  logger.info(`${name}:${gauge.name} updated`)
 }
 
-function initNodeMetrics (registry, nodes) {
+function initParityMetrics (registry, nodes) {
   const gVersion = new Gauge({
     name: `parity_version`,
     help: `Client version`,
-    labelNames: ['chain', 'value'],
+    labelNames: ['name', 'value'],
     registers: [registry]
   })
   const gLatest = new Gauge({
     name: `parity_latest`,
     help: `Latest block information`,
-    labelNames: ['chain', 'value'],
+    labelNames: ['name', 'value'],
     registers: [registry]
   })
   const gPeerCount = new Gauge({
     name: `parity_peer_count`,
     help: `Peer count`,
-    labelNames: ['chain'],
+    labelNames: ['name'],
     registers: [registry]
   })
 
@@ -103,9 +107,9 @@ function initNodeMetrics (registry, nodes) {
   }
 
   const reset = (name) => {
-    setGaugeLabelValue(gVersion, name, '', 0)
-    setGaugeLabelValue(gLatest, name, '', 0)
-    setGaugeValue(gPeerCount, name, 0)
+    gVersion.reset()
+    gLatest.reset()
+    gPeerCount.reset()
   }
 
   return async () => {
@@ -113,14 +117,13 @@ function initNodeMetrics (registry, nodes) {
       await Promise.all(nodes.map(async ({ name, url }) => {
         try {
           await update(name, url)
-          logger.info(`${name} updated`)
         } catch (err) {
-          logger.error(`Can not update ${name}: ${err.message || err}`)
+          logger.error(`can not update ${name}: ${err.message || err}`)
           reset(name)
         }
       }))
     } catch (err) {
-      logger.error(`Can not update metrics: ${err.message || err}`)
+      logger.error(`can not update metrics: ${err.message || err}`)
       nodes.map(({ name }) => reset(name))
     }
   }
@@ -129,13 +132,13 @@ function initNodeMetrics (registry, nodes) {
 async function createPrometheusClient (config) {
   const registry = new Registry()
 
-  const updateMetrics = initNodeMetrics(registry, config.nodes)
+  const updateMetrics = initParityMetrics(registry, config.nodes)
   const update = async () => {
     const ts = Date.now()
     await updateMetrics()
     setTimeout(update, Math.max(10, config.interval - (Date.now() - ts)))
   }
-  update()
+  process.nextTick(update)
 
   return (req, res) => {
     res.setHeader('Content-Type', registry.contentType)
@@ -148,13 +151,14 @@ async function main () {
   const config = await readConfig(args.config)
 
   const onRequest = await createPrometheusClient(config)
-  polka().get('/metrics', onRequest).listen(config.port)
+  await polka().get('/metrics', onRequest).listen(config.port, config.hostname)
+  logger.info(`listen at ${config.hostname}:${config.port}`)
 
   process.on('SIGINT', () => process.exit(0))
   process.on('SIGTERM', () => process.exit(0))
 }
 
 main().catch((err) => {
-  logger.error(String(err.stack || err))
+  logger.error(String(err.message || err))
   process.exit(1)
 })

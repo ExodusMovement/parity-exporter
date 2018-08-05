@@ -1,6 +1,8 @@
 port: 8000
 hostname: 127.0.0.1
 
+processMetrics: false
+
 interval: 250 # in ms
 nodes:
   - name: foundation

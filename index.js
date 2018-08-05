@@ -5,7 +5,7 @@ const yaml = require('js-yaml')
 const polka = require('polka')
 const yargs = require('yargs')
 const winston = require('winston')
-const { Registry, Gauge } = require('prom-client')
+const { Registry, Gauge, metrics: promMetrics } = require('prom-client2')
 
 const logger = winston.createLogger({
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
@@ -51,49 +51,41 @@ async function makeRequest (url, method, params = []) {
   return json.result
 }
 
-function setGaugeLabelValue (gauge, name, labelValue, value) {
-  const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.name === name)
-  if (!obj) return gauge.set({ name, value: labelValue }, value)
-  if (obj.labels.value === labelValue && obj.value === value) return
-
-  obj.labels.value = labelValue
-  obj.value = value
-  logger.info(`${name}:${gauge.name} updated`)
-}
-
-function setGaugeValue (gauge, name, value) {
-  const obj = Object.values(gauge.hashMap).find((obj) => obj.labels.name === name)
-  if (!obj) return gauge.set({ name }, value)
-  if (obj.value === value) return
-
-  obj.value = value
-  logger.info(`${name}:${gauge.name} updated`)
-}
-
 function initParityMetrics (registry, nodes) {
-  const gVersion = new Gauge({
-    name: `parity_version`,
-    help: `Client version`,
-    labelNames: ['name', 'value'],
-    registers: [registry]
-  })
-  const gLatest = new Gauge({
-    name: `parity_latest`,
-    help: `Latest block information`,
-    labelNames: ['name', 'value'],
-    registers: [registry]
-  })
-  const gPeerCount = new Gauge({
-    name: `parity_peer_count`,
-    help: `Peer count`,
-    labelNames: ['name'],
-    registers: [registry]
-  })
+  const gauges = {
+    version: new Gauge({
+      name: `parity_version`,
+      help: `Client version`,
+      labelNames: ['name', 'value'],
+      registers: [registry]
+    }),
+    latestBlock: new Gauge({
+      name: `parity_latest`,
+      help: `Latest block information`,
+      labelNames: ['name', 'value'],
+      registers: [registry]
+    }),
+    peerCount: new Gauge({
+      name: `parity_peer_count`,
+      help: `Peer count`,
+      labelNames: ['name'],
+      registers: [registry]
+    })
+  }
 
-  const update = async (name, url) => {
+  const dataNodes = {}
+  for (const node of nodes) {
+    dataNodes[node.name] = {
+      version: '',
+      latestBlock: {},
+      peerCount: ''
+    }
+  }
+
+  const update = async ({ name, url }) => {
     const [
       clientVersion,
-      latest,
+      latestBlock,
       peerCount
     ] = await Promise.all([
       makeRequest(url, 'web3_clientVersion'),
@@ -101,48 +93,46 @@ function initParityMetrics (registry, nodes) {
       makeRequest(url, 'net_peerCount')
     ])
 
-    setGaugeLabelValue(gVersion, name, clientVersion, 1)
-    setGaugeLabelValue(gLatest, name, `${parseInt(latest.number, 16)}:${latest.hash}`, parseInt(latest.number, 16))
-    setGaugeValue(gPeerCount, name, parseInt(peerCount, 16))
-  }
+    const data = dataNodes[name]
 
-  const reset = (name) => {
-    gVersion.reset()
-    gLatest.reset()
-    gPeerCount.reset()
+    if (data.version !== clientVersion) {
+      gauges.version.labels({ name, value: clientVersion }).set(1)
+      data.version = clientVersion
+      logger.info(`Update ${name}:version to ${clientVersion}`)
+    }
+
+    if (data.latestBlock.hash !== latestBlock.hash) {
+      const number = parseInt(latestBlock.number, 16)
+      const value = `${number}:${latestBlock.hash}`
+      gauges.latestBlock.remove({ name, value: data.latestBlock.value })
+      gauges.latestBlock.labels({ name, value }).set(number)
+      data.latestBlock = { hash: latestBlock.hash, value }
+      logger.info(`Update ${name}:latestBlock to ${value}`)
+    }
+
+    if (data.peerCount !== peerCount) {
+      const value = parseInt(peerCount, 16)
+      gauges.peerCount.labels({ name }).set(value)
+      data.peerCount = peerCount
+      logger.info(`Update ${name}:peerCount to ${value}`)
+    }
   }
 
   return async () => {
-    try {
-      await Promise.all(nodes.map(async ({ name, url }) => {
-        try {
-          await update(name, url)
-        } catch (err) {
-          logger.error(`can not update ${name}: ${err.message || err}`)
-          reset(name)
-        }
-      }))
-    } catch (err) {
-      logger.error(`can not update metrics: ${err.message || err}`)
-      nodes.map(({ name }) => reset(name))
-    }
+    await Promise.all(nodes.map((node) => update(node)))
   }
 }
 
-async function createPrometheusClient (config) {
-  const registry = new Registry()
+function createPrometheusClient (config) {
+  const register = new Registry()
+  if (config.processMetrics) promMetrics.setup(register, 1000)
 
-  const updateMetrics = initParityMetrics(registry, config.nodes)
-  const update = async () => {
-    const ts = Date.now()
-    await updateMetrics()
-    setTimeout(update, Math.max(10, config.interval - (Date.now() - ts)))
-  }
-  process.nextTick(update)
-
-  return (req, res) => {
-    res.setHeader('Content-Type', registry.contentType)
-    res.end(registry.metrics())
+  return {
+    update: initParityMetrics(register, config.nodes),
+    onRequest (req, res) {
+      res.setHeader('Content-Type', register.contentType)
+      res.end(register.exposeText())
+    }
   }
 }
 
@@ -150,15 +140,22 @@ async function main () {
   const args = getArgs()
   const config = await readConfig(args.config)
 
-  const onRequest = await createPrometheusClient(config)
-  await polka().get('/metrics', onRequest).listen(config.port, config.hostname)
+  const client = createPrometheusClient(config)
+  await polka().get('/metrics', client.onRequest).listen(config.port, config.hostname)
   logger.info(`listen at ${config.hostname}:${config.port}`)
 
   process.on('SIGINT', () => process.exit(0))
   process.on('SIGTERM', () => process.exit(0))
+
+  while (true) {
+    const ts = Date.now()
+    await client.update()
+    const delay = Math.max(10, config.interval - (Date.now() - ts))
+    await new Promise((resolve) => setTimeout(resolve, delay))
+  }
 }
 
 main().catch((err) => {
-  logger.error(String(err.message || err))
+  logger.error(String(err.stack || err))
   process.exit(1)
 })

@@ -62,7 +62,7 @@ function initParityMetrics (registry, nodes) {
     latestBlock: new Gauge({
       name: `parity_latest`,
       help: `Latest block information`,
-      labelNames: ['name', 'value'],
+      labelNames: ['name', 'hash'],
       registers: [registry]
     }),
     peerCount: new Gauge({
@@ -77,7 +77,7 @@ function initParityMetrics (registry, nodes) {
   for (const node of nodes) {
     dataNodes[node.name] = {
       version: '',
-      latestBlock: {},
+      latestBlockHash: '',
       peerCount: ''
     }
   }
@@ -101,13 +101,12 @@ function initParityMetrics (registry, nodes) {
       logger.info(`Update ${name}:version to ${clientVersion}`)
     }
 
-    if (data.latestBlock.hash !== latestBlock.hash) {
-      const number = parseInt(latestBlock.number, 16)
-      const value = `${number}:${latestBlock.hash}`
-      gauges.latestBlock.remove({ name, value: data.latestBlock.value })
-      gauges.latestBlock.labels({ name, value }).set(number)
-      data.latestBlock = { hash: latestBlock.hash, value }
-      logger.info(`Update ${name}:latestBlock to ${value}`)
+    if (data.latestBlockHash !== latestBlock.hash) {
+      const [hash, number] = [latestBlock.hash, parseInt(latestBlock.number, 16)]
+      if (data.latestBlockHash) gauges.latestBlock.remove({ name, hash: data.latestBlockHash })
+      gauges.latestBlock.labels({ name, hash }).set(number)
+      data.latestBlockHash = hash
+      logger.info(`Update ${name}:latestBlock to ${number} - ${hash}`)
     }
 
     if (data.peerCount !== peerCount) {

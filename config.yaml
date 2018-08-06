@@ -3,7 +3,7 @@ hostname: 127.0.0.1
 
 processMetrics: false
 
-interval: 250 # in ms
+interval: 100 # in ms
 nodes:
   - name: foundation
     url: http://localhost:8545/

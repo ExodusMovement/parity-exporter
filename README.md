@@ -1,6 +1,6 @@
 # Parity exporter for Prometheus
-![Docker Stars](https://img.shields.io/docker/stars/fanatid/parity-exporter.svg?style=flat-square)
-![Docker Pulls](https://img.shields.io/docker/pulls/fanatid/parity-exporter.svg?style=flat-square)
+[![Docker Stars](https://img.shields.io/docker/stars/exodusmovement/parity-exporter.svg?style=flat-square)](https://hub.docker.com/r/exodusmovement/parity-exporter/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/exodusmovement/parity-exporter.svg?style=flat-square)](https://hub.docker.com/r/exodusmovement/parity-exporter/)
 
 [![js-standard-style](https://cdn.rawgit.com/feross/standard/master/badge.svg)](https://github.com/feross/standard)
 
@@ -40,7 +40,7 @@ nodes:
 Usage:
 
 ```
-docker run -p 8000:8000 fanatid/parity-exporter
+docker run -p 8000:8000 exodusmovement/parity-exporter
 ```
 
 ### LICENSE

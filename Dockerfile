@@ -1,19 +1,16 @@
-FROM node:10.4.1-alpine
+FROM node:10.7.0-alpine AS builder
 
 ENV NODE_ENV production
 
-# 1.17 --chown=node:node can be used
-COPY . /home/node/parity-exporter
-RUN chown -R node:node /home/node/parity-exporter
+COPY . ./build
+WORKDIR /build
+RUN yarn install --production
+RUN ls -A1 | egrep -v "node_modules|index.js|LICENSE|package.json|yarn.lock" | xargs rm -r
 
+FROM node:10.7.0-alpine
+
+ENV NODE_ENV production
+COPY --chown=node:node --from=builder /build /home/node/parity-exporter
 USER node
-
-# TODO: mount cache folder?
-RUN cd /home/node/parity-exporter \
-  && yarn \
-  && yarn cache clean
-
-EXPOSE 8000
-WORKDIR /home/node/parity-exporter
-
+WORKDIR "/home/node/parity-exporter"
 ENTRYPOINT ["node", "index.js"]

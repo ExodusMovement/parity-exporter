@@ -1,6 +1,6 @@
 {
   "name": "parity-exporter",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "Parity exporter for Prometheus",
   "keywords": [],
   "bugs": {

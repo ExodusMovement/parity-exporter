@@ -1,9 +1,0 @@
-port: 8000
-hostname: 127.0.0.1
-
-processMetrics: false
-
-interval: 100 # in ms
-nodes:
-  - name: foundation
-    url: http://localhost:8545/

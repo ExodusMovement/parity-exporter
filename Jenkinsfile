@@ -20,7 +20,7 @@ pipeline {
     environment {
         GIT_COMMIT_SHORT = "${env.GIT_COMMIT[0..7]}" // first 7 symbols of commit hash (because GH show only 7)
         REPO_URL = "${GIT_URL[0..-5]}" // removed postfix `.git`
-        REPO_NAME = "${REPO_URL - ~/.*\//}" // removed anything before `docker-`
+        REPO_NAME = "${REPO_URL - ~/.*\//}" // removed anything before last slash
         IMAGE_NAME = "${REPO_NAME}" // use for readability
     }
     agent {

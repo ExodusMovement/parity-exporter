@@ -1,6 +1,4 @@
 # Parity exporter for Prometheus
-[![Docker Stars](https://img.shields.io/docker/stars/exodusmovement/parity-exporter.svg?style=flat-square)](https://hub.docker.com/r/exodusmovement/parity-exporter/)
-[![Docker Pulls](https://img.shields.io/docker/pulls/exodusmovement/parity-exporter.svg?style=flat-square)](https://hub.docker.com/r/exodusmovement/parity-exporter/)
 
 [![js-standard-style](https://cdn.rawgit.com/feross/standard/master/badge.svg)](https://github.com/feross/standard)
 
@@ -23,7 +21,7 @@ parity_latest{hash="0xeb9f857555053d93e661e2d9324dcb729c30707e6cbba945fc19f89f4b
 # TYPE bitcoind_blockchain_sync gauge
 bitcoind_blockchain_sync{type="current"} 6347076
 bitcoind_blockchain_sync{type="highest"} 6362392
-bitcoind_blockchain_sync{type="progress"} 99.759
+bitcoind_blockchain_sync{type="progress"} 0.99759
 
 # HELP parity_gas_price Current gas price in wei
 # TYPE parity_gas_price gauge
@@ -42,7 +40,11 @@ parity_peers{version="all"} 4
 Usage:
 
 ```
-docker run -p 8000:8000 exodusmovement/parity-exporter
+docker run \
+  -p 8000:8000 \
+  -e PARITY_EXPORTER_LISTEN=0.0.0.0:8000 \
+  -e PARITY_EXPORTER_NODE=http://parity:8545/ \
+  quay.io/exodusmovement/parity-exporter
 ```
 
 ### LICENSE

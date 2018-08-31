@@ -20,7 +20,7 @@ pipeline {
     environment {
         GIT_COMMIT_SHORT = "${env.GIT_COMMIT[0..7]}" // first 7 symbols of commit hash (because GH show only 7)
         REPO_URL = "${GIT_URL[0..-5]}" // removed postfix `.git`
-        REPO_NAME = "${REPO_URL - ~/.*\//}" // removed anything before last slash
+        REPO_NAME = "${REPO_URL - ~/.*\//}" // removed anything before `docker-`
         IMAGE_NAME = "${REPO_NAME}" // use for readability
     }
     agent {
@@ -49,8 +49,8 @@ pipeline {
                     echo " ============== start building :latest from exodusmovement/${REPO_NAME}:${GIT_BRANCH} =================="
                     sh """
                     docker build \
-                        -t exodusmovement/${IMAGE_NAME}:latest \
-                        -t exodusmovement/${IMAGE_NAME}:${GIT_BRANCH} \
+                        -t quay.io/exodusmovement/${IMAGE_NAME}:latest \
+                        -t quay.io/exodusmovement/${IMAGE_NAME}:${GIT_BRANCH} \
                         .
                     """
                     currentBuild.description = "Image built, "
@@ -62,9 +62,9 @@ pipeline {
             steps {
                 script {
                     echo " ============== start pushing :latest from exodusmovement/${REPO_NAME}:${GIT_BRANCH} =================="
-                    withDockerRegistry([ credentialsId: "exodusmovement-docker-creds", url: "" ]) {
+                    withDockerRegistry([ credentialsId: "exodusmovement-quay-creds", url: "https://quay.io" ]) {
                         sh """
-                        docker push exodusmovement/${IMAGE_NAME}:latest
+                        docker push quay.io/exodusmovement/${IMAGE_NAME}:latest
                         """
                     }
                     currentBuild.description += "and pushed to registry"
@@ -76,9 +76,9 @@ pipeline {
             steps {
                 script {
                     echo " ============== start pushing ${GIT_BRANCH} from exodusmovement/${REPO_NAME}:${GIT_BRANCH} =================="
-                    withDockerRegistry([ credentialsId: "exodusmovement-docker-creds", url: "" ]) {
+                    withDockerRegistry([ credentialsId: "exodusmovement-quay-creds", url: "https://quay.io" ]) {
                         sh """
-                        docker push exodusmovement/${IMAGE_NAME}:${GIT_BRANCH}
+                        docker push quay.io/exodusmovement/${IMAGE_NAME}:${GIT_BRANCH}
                         """
                     }
                     currentBuild.description += "and pushed to registry"

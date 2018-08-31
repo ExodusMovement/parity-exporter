@@ -3,7 +3,8 @@ const fetch = require('node-fetch')
 const polka = require('polka')
 const yargs = require('yargs')
 const winston = require('winston')
-const { Registry, Gauge } = require('prom-client2')
+const { Registry, Gauge } = require('prom-client')
+const { hashObject } = require('prom-client/lib/util')
 
 const logger = winston.createLogger({
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
@@ -102,33 +103,33 @@ function initParityMetrics (registry, nodeURL) {
 
     // version
     if (data.version !== clientVersion) {
-      gauges.version.labels({ value: clientVersion }).set(1)
+      gauges.version.set({ value: clientVersion }, 1)
       data.version = clientVersion
-      logger.info(`Update version to ${clientVersion}`)
+      logger.info(`update version to ${clientVersion}`)
     }
 
     // chain
     if (data.chain !== clientChain) {
-      gauges.chain.labels({ value: clientChain }).set(1)
+      gauges.chain.set({ value: clientChain }, 1)
       data.chain = clientChain
-      logger.info(`Update chain to ${clientChain}`)
+      logger.info(`update chain to ${clientChain}`)
     }
 
     // latest
     if (data.latest !== latestBlock.hash) {
       const [hash, number] = [latestBlock.hash, parseInt(latestBlock.number, 16)]
-      if (data.latest) gauges.latest.hash.remove({ hash: data.latest })
-      gauges.latest.hash.labels({ hash }).set(number)
+      if (data.latest) delete gauges.latest.hash.hashMap[hashObject({ hash: data.latest })]
+      gauges.latest.hash.set({ hash }, number)
       data.latest = hash
-      logger.info(`Update latest to ${number} - ${hash}`)
+      logger.info(`update latest to ${number} - ${hash}`)
 
       const [current, highest] = syncInfo
         ? [parseInt(syncInfo.currentBlock, 16), parseInt(syncInfo.highestBlock, 16)]
         : [number, number]
 
-      gauges.latest.sync.labels({ type: 'current' }).set(current)
-      gauges.latest.sync.labels({ type: 'highest' }).set(highest)
-      gauges.latest.sync.labels({ type: 'progress' }).set(parseFloat((current * 100 / highest).toFixed(3)))
+      gauges.latest.sync.set({ type: 'current' }, current)
+      gauges.latest.sync.set({ type: 'highest' }, highest)
+      gauges.latest.sync.set({ type: 'progress' }, parseFloat((current / highest).toFixed(5)))
     }
 
     // gas price
@@ -136,12 +137,12 @@ function initParityMetrics (registry, nodeURL) {
       const value = parseInt(gasPrice, 16)
       gauges.gasPrice.set(value)
       data.gasPrice = gasPrice
-      logger.info(`Update gas price to: ${value}`)
+      logger.info(`update gas price to: ${value}`)
     }
 
     // mempool
-    gauges.mempool.labels({ type: 'size' }).set(mempool.length)
-    gauges.mempool.labels({ type: 'bytes' }).set(mempool.reduce((total, tx) => total + tx.raw.length - 2, 0))
+    gauges.mempool.set({ type: 'size' }, mempool.length)
+    gauges.mempool.set({ type: 'bytes' }, mempool.reduce((total, tx) => total + tx.raw.length - 2, 0))
 
     // peers
     // const peers = peersInfo.peers.filter((peer) => peer.network.remoteAddress !== 'Handshake')
@@ -149,10 +150,10 @@ function initParityMetrics (registry, nodeURL) {
     // data.peers.set('all', peers.length)
     // for (const peer of peers) data.peers.set(peer.name, (data.peers.get(peer.name) || 0) + 1)
     // for (const [version, value] of data.peers.entries()) {
-    //   if (value === 0) gauges.peers.remove({ version })
-    //   else gauges.peers.labels({ version }).set(value)
+    //   if (value === 0) delete gauges.peers.hashMap[hashObject({ version })]
+    //   else gauges.peers.set({ version }, value)
     // }
-    gauges.peers.labels({ version: 'all' }).set(peersInfo.connected)
+    gauges.peers.set({ version: 'all' }, peersInfo.connected)
   }
 }
 
@@ -162,7 +163,7 @@ function createPrometheusClient (args) {
     update: initParityMetrics(register, args.node),
     onRequest (req, res) {
       res.setHeader('Content-Type', register.contentType)
-      res.end(register.exposeText())
+      res.end(register.metrics())
     }
   }
 }

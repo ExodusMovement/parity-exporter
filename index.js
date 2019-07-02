@@ -5,6 +5,7 @@ const yargs = require('yargs')
 const winston = require('winston')
 const { Registry, Gauge } = require('prom-client')
 const { hashObject } = require('prom-client/lib/util')
+const BigNumber = require('bignumber.js')
 
 const logger = winston.createLogger({
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
@@ -63,22 +64,22 @@ function initParityMetrics (registry, nodeURL) {
   const createGauge = (name, help, labelNames) => new Gauge({ name, help, labelNames, registers: [registry] })
 
   const gauges = {
-    version: createGauge('parity_version', 'Client version', ['value']),
-    chain: createGauge('parity_chain', 'Client chain', ['value']),
+    version: createGauge('client_version', 'Client version', ['value']),
+    chain: createGauge('client_chain', 'Client chain', ['value']),
     latest: {
-      hash: createGauge('parity_latest', 'Latest block information', ['hash']),
-      sync: createGauge('bitcoind_blockchain_sync', 'Blockchain sync info', ['type'])
+      hash: createGauge('client_blockchain_latest', 'Latest block information', ['hash']),
+      sync: createGauge('client_blockchain_sync', 'Blockchain sync info', ['type'])
     },
-    gasPrice: createGauge('parity_gas_price', 'Current gas price in wei', []),
-    mempool: createGauge('parity_mempool_size', 'Mempool information', ['type']),
-    peers: createGauge('parity_peers', 'Connected peers', ['version'])
+    mempool: createGauge('client_mempool_size', 'Mempool information', ['type']),
+    fee: createGauge('client_fee', 'Approximate fee per 21000 gas by eth_gasPrice method', []),
+    peers: createGauge('client_peers', 'Connected peers', ['version'])
   }
 
   const data = {
     version: '',
     chain: '',
     latest: '',
-    gasPrice: 0,
+    fee: '',
     peers: new Map([['all', 0]])
   }
 
@@ -133,11 +134,13 @@ function initParityMetrics (registry, nodeURL) {
     }
 
     // gas price
-    if (data.gasPrice !== gasPrice) {
-      const value = parseInt(gasPrice, 16)
-      gauges.gasPrice.set(value)
-      data.gasPrice = gasPrice
-      logger.info(`update gas price to: ${value}`)
+    const STANDARD_FEE = 21000
+    const ETH_TO_GWEI = 1e18
+    const fee = new BigNumber(gasPrice, 16).times(STANDARD_FEE).dividedBy(ETH_TO_GWEI).toFixed(8)
+    if (data.fee !== fee) {
+      gauges.fee.set(fee)
+      data.fee = fee
+      logger.info(`update fee to: ${fee}`)
     }
 
     // mempool
